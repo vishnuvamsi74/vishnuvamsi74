@@ -1,0 +1,309 @@
+Bookings table for adding the booking details on successfull booking:-
+--------------------------------------------------------------------------
+
+CREATE TABLE dbo.Bookings(
+contactNumber numeric(10)   not null,
+residentialAddress varchar(50) not null,
+DateOfTravel DateTime  not null constraint chk_travelDate check(DateOfTravel>=GETDATE()),
+noOfAdults number constraint chk_noOfAdults check(noOfAdults>=1),
+noOfChildren number constraint chk_noOfChildren check(noOfChildren>=1),
+bookingStatus varchar(8) not null,
+EmailId varchar(20) constraint pk_EmailId primary key,
+bookingID BIGINT IDENTITY(1000,1)
+)
+
+Stored procedure to update the table by taking the inputs from the user:-
+------------------------------------------------------------------------
+CREATE PROCEDURE usp_BookingPackage(
+@contactNumber NUMERIC(10),
+@residentialAddress VARCHAR(50),
+@dateOfTravel Date,
+@numberOfAdults NUMBER,
+@noOfChildren NUMBER,
+@bookingStatus VARCHAR(8),
+@EmailId VARCHAR(20),
+@bookingId BIGINT OUT
+)
+
+AS
+
+BEGIN
+
+	DECLARE @retVal
+	BEGIN TRY
+		IF EXISTS(SELECT EmailId FROM Bookings WHERE EmailId=@EmailId)
+		 	RETURN -1
+		
+		ELSE IF @contactNumber<1000000000 OR @contactNumber is NULL
+		 	RETURN -2
+		
+		ELSE IF @residentialAddress is NULL
+		 	RETURN -3
+		
+		ELSE IF @dateOfTravel<GETDATE() OR @dateOfTravel is NULL
+			RETURN -4
+		
+		ELSE IF @numberOfAdults<1 OR @numberOfAdults is NULL
+			RETURN -5
+		
+		ELSE IF @numberOfChildren<0 or @noOfChildren is NULL
+			RETURN -6
+
+		ELSE
+			BEGIN 
+				SET @bookingStatus="Booked"
+				INSERT INTO Bookings VALUES
+				(@contactNumber,@residentialAddress,@dateOfTravel,@numberOfAdults,@noOfChildren,@bookingStatus,@EmailId)
+				SET @bookingId = IDENT_CURRENT('bookings')
+				RETURN @bookingId
+			END
+	END TRY
+   BEGIN CATCH
+       
+       
+       RETURN -99
+   END CATCH 
+END  
+
+Execution:-
+-----------
+DECLARE @ReturnValue INT, @BookingId BIGINT
+EXEC @ReturnValue = usp_BookingPackage 9618971974,'Andhra pradesh,Nellore','2022-12-01',2,2,'Booked','Rahini@gmail.com',@BookingId OUT
+SELECT @ReturnValue AS ReturnValue, @BookingId AS PurchaseId
+GO
+**************************************************************************************************************************************************
+public int AddBooking(long contactNumber,string residentialAddress,Datetime dateOfTravel,int numberOfAdults,int numberOfChildren,string bookingStatus,string emailId,out int bookingId)
+{
+	bookingId=0;
+	int noOfRowsAffected=0;
+	int returnResult=0;
+	SqlParameter prmContactNumber = new SqlParameter("@ContactNumber", contactNumber);
+	SqlParameter prmResidentialAddress = new SqlResidentialAddress("@ResidentialAddress", residentialAddress);
+	SqlParameter prmDateOfTravel = new SqlParameter("@DateOfTravel",dateOfTravel);
+	SqlParameter prmNoOfAdults = new SqlParameter("@NoOfAdults",numberOfAdults);
+	SqlParameter prmNoOfChildren = new SqlParameter("@NoOfChildren",numberOfChildren);
+	SqlParameter prmBookingStatus = new SqlParameter("@BookingStatus",bookingStatus);
+	SqlParameter prmEmailId= new SqlParameter("@EmailId",emailId);
+	     SqlParameter prmBookingId = new SqlParameter("@BookingId", System.Data.SqlDbType.TinyInt);
+     prmCategoryId.Direction = System.Data.ParameterDirection.Output;
+     SqlParameter prmReturnResult = new SqlParameter("@ReturnResult", System.Data.SqlDbType.Int);
+     prmReturnResult.Direction = System.Data.ParameterDirection.Output;
+	     try
+     {
+          noOfRowsAffected = context.Database
+                          .ExecuteSqlRaw(""EXEC @ReturnResult = usp_BookingPackage @ContactNumber,@ResidentialAddress,@DateOfTravel,@NoOfAdults,@NoOfChildren,@BookingStatus,@EmailId @bookingId OUT", 
+                            prmReturnResult,prmContactNumber,prmResidentialAddress,prmDateOfTravel,prmNoOfAdults,prmNoOfChildren,prmBookingStatus,prmEmailId, prmBookingId");
+          returnResult = Convert.ToInt32(prmReturnResult.Value);
+          
+          bookingId = Convert.ToInt32(prmBookingId.Value);              
+      }
+      catch (Exception ex)
+      {
+                categoryId = 0;
+                noOfRowsAffected = -1;
+                returnResult = -99;
+      }
+      return returnResult;
+
+}
+
+*****************************************************************************************************************************************************************************************************
+[HttpPost]
+        public JsonResult AddBooking(long contactNumber,string residentialAddress, DateTime dateOfTravel,int noOfAdults,int noOfChildren,string bookingStatus,string emailId)
+        {
+            int status = -1;
+            int bookingId = 0;
+            string message;
+            try
+            {
+                status = repository.AddBooking(contactNumber, residentialAddress, dateOfTravel, noOfAdults, noOfChildren, bookingStatus, emailId, out bookingId);
+                if (status>0)
+                {
+                    message = "Successful addition operation, ProductId = " + bookingId;
+                }
+                else
+                {
+                    message = "Unsuccessful addition operation!";
+                }
+            }
+            catch (Exception ex)
+            {
+                message = "Some error occured, please try again!";
+            }
+            return Json(message);
+        }
+********************************************************************************************************************************
+addBooking(bookingObj: IBooking): Observable<boolean> {
+    //var bookingObj: IBooking;
+    //bookingObj = { contactNumber: contactNumber, residentialAddress: residentialAddress, dateOfTravel: dateOfTravel, noOfAdults: noOfAdults, noOfChildren: noOfChildren, bookingStatus: bookingStatus, emailId: emailId, bookingId: 0 }
+    return this.http.post<boolean>('https://localhost:44371/api/Customer/AddBooking', bookingObj).pipe(catchError(this.errorHandler));
+  }
+***********************************************************************************************************
+import { Component, OnInit } from '@angular/core';
+import { IBooking } from '../TravelAway-Interfaces/booking';
+import { FormGroup, FormBuilder, FormControl, NgForm } from '@angular/forms';
+import { NgModule } from '@angular/core';
+import { CustomerService } from '../TravelAway-services/customer-Services/customer.service';
+
+@Component({
+  selector: 'app-booking',
+  templateUrl: './booking.component.html',
+  styleUrls: ['./booking.component.css']
+})
+export class BookingComponent implements OnInit {
+  message: boolean;
+  errorMsg: string;
+  /*var emailId = bhagya@gmail.com;*/
+  
+  bookingForm: FormGroup;
+  constructor(private _customerService: CustomerService, private formBuilder: FormBuilder) { }
+
+  ngOnInit(): void {
+    this.bookingForm = this.formBuilder.group({
+      emailId: [''],
+      contact: [''],
+      Address: [''],
+      status: [''],
+      noOfAdults: [''],
+      noOfChildren:[''],
+      dateOfTravel:[''],
+    })
+  }
+  addBooking(form: FormGroup) {
+    //if (this.userRole == null) {
+    //  this.router.navigate(['/login']);
+    //}
+    /*   else {*/
+    var bookingObj: IBooking;
+    bookingObj = { contactNumber: parseInt(form.value.contact), residentialAddress: form.value.Address, dateOfTravel: new Date(form.value.dateOfTravel), noOfAdults: parseInt(form.value.noOfAdults), noOfChildren: parseInt(form.value.noOfChildren), bookingStatus: form.value.status, emailId: form.value.emailId, bookingId:0 }
+    this._customerService.addBooking(bookingObj)
+        .subscribe(
+          responseProductData => {
+            this.message = responseProductData;
+            console.log(this.message);
+            if (responseProductData) {
+              alert("Booking added sucessfully.")
+            }
+            
+          },
+          responseProductError => {
+            this.errorMsg = responseProductError,
+              console.log(this.errorMsg),
+              alert("Sorry, something went wrong. Please try again after sometime.")
+          },
+          () => console.log("AddBooking method executed successfully")
+        );
+    
+  }
+
+}
+************************************************************************************************************************
+import { Component, OnInit } from '@angular/core';
+import { IBooking } from '../TravelAway-Interfaces/booking';
+import { FormGroup, FormBuilder, FormControl, NgForm } from '@angular/forms';
+import { NgModule } from '@angular/core';
+import { CustomerService } from '../TravelAway-services/customer-Services/customer.service';
+
+@Component({
+  selector: 'app-booking',
+  templateUrl: './booking.component.html',
+  styleUrls: ['./booking.component.css']
+})
+export class BookingComponent implements OnInit {
+  message: boolean;
+  errorMsg: string;
+  /*var emailId = bhagya@gmail.com;*/
+  
+  bookingForm: FormGroup;
+  constructor(private _customerService: CustomerService, private formBuilder: FormBuilder) { }
+
+  ngOnInit(): void {
+    this.bookingForm = this.formBuilder.group({
+      emailId: [''],
+      contact: [''],
+      Address: [''],
+      status: [''],
+      noOfAdults: [''],
+      noOfChildren:[''],
+      dateOfTravel:[''],
+    })
+  }
+  addBooking(form: FormGroup) {
+    //if (this.userRole == null) {
+    //  this.router.navigate(['/login']);
+    //}
+    /*   else {*/
+    var bookingObj: IBooking;
+    bookingObj = { contactNumber: parseInt(form.value.contact), residentialAddress: form.value.Address, dateOfTravel: new Date(form.value.dateOfTravel), noOfAdults: parseInt(form.value.noOfAdults), noOfChildren: parseInt(form.value.noOfChildren), bookingStatus: form.value.status, emailId: form.value.emailId, bookingId:0 }
+    this._customerService.addBooking(bookingObj)
+        .subscribe(
+          responseProductData => {
+            this.message = responseProductData;
+            console.log(this.message);
+            if (responseProductData) {
+              alert("Booking added sucessfully.")
+            }
+            
+          },
+          responseProductError => {
+            this.errorMsg = responseProductError,
+              console.log(this.errorMsg),
+              alert("Sorry, something went wrong. Please try again after sometime.")
+          },
+          () => console.log("AddBooking method executed successfully")
+        );
+    
+  }
+
+}
+*****************************************************************************************************
+<app-customer-layout></app-customer-layout>
+<body style="background-color:aquamarine">
+  <div class="container">
+    <h1>Book your Package</h1>
+    <form [formGroup]="bookingForm" (ngSubmit)="addBooking(bookingForm)">
+      <div class="form-group">
+        <label>EmailID</label>
+        <input type="text" class="form-control" formControlName="emailId">
+        <!--<p *ngIf="registerForm.controls.emailId.errors?.required &&  registerForm.controls.emailId.touched" class="alert alert-danger">This field is required!</p>
+        <p *ngIf="registerForm.controls.emailId.errors?.minlength &&  registerForm.controls.emailId.touched" class="alert alert-danger">The EmailId is not proper!</p>-->
+      </div>
+      <div class="form-group">
+        <label>Contact Number</label>
+
+        <input type="number" class="form-control" formControlName="contact">
+
+      </div>
+
+      <div class="form-group">
+        <label>Address</label>
+        <input type="text" formControlName="Address" class="form-control">
+
+
+
+      </div>
+      <div class="form-group">
+        <label>Date of Travel</label>
+        <input type="date" class="form-control" formControlName="dateOfTravel">
+      </div>
+      <!--<div class="form-group">
+        <label>Address</label>
+        <input type="text" class="form-control" formControlName="address">
+      </div>-->
+      <!--<div class="form-group">
+        <label>Booking Status</label>
+        <input type="text" class="form-control" formControlName="status">
+      </div>-->
+      <div class="form-group">
+        <label>No of Adults</label>
+        <input type="text" class="form-control" formControlName="noOfAdults">
+      </div>
+      <div class="form-group">
+        <label>No of Children</label>
+        <input type="text" class="form-control" formControlName="noOfChildren">
+      </div>
+      <button type="submit">Register User</button>
+    </form>
+    <br />
+  </div>
+  </body>
